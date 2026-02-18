@@ -1,0 +1,278 @@
+@import 'tailwindcss';
+@import '@xyflow/react/dist/style.css';
+@import 'katex/dist/katex.min.css';
+@import 'highlight.js/styles/github-dark.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Design Tokens (Light) ─── */
+@theme {
+  --color-page: #fafafa;
+  --color-surface: #ffffff;
+  --color-elevated: #f4f4f5;
+  --color-subtle: #f4f4f5;
+  --color-border: #e4e4e7;
+  --color-border-muted: #f4f4f5;
+  --color-border-strong: #d4d4d8;
+  --color-fg-primary: #09090b;
+  --color-fg-secondary: #52525b;
+  --color-fg-muted: #a1a1aa;
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f46e5;
+  --color-accent-muted: #eef2ff;
+  --color-accent-text: #ffffff;
+  --color-destructive: #ef4444;
+  --color-destructive-hover: #dc2626;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ─── Dark Mode Token Overrides ─── */
+.dark {
+  --color-page: #09090b;
+  --color-surface: #18181b;
+  --color-elevated: #27272a;
+  --color-subtle: #1e1e22;
+  --color-border: #27272a;
+  --color-border-muted: #1e1e22;
+  --color-border-strong: #3f3f46;
+  --color-fg-primary: #fafafa;
+  --color-fg-secondary: #a1a1aa;
+  --color-fg-muted: #71717a;
+  --color-accent: #818cf8;
+  --color-accent-hover: #6366f1;
+  --color-accent-muted: rgba(99, 102, 241, 0.15);
+  --color-accent-text: #ffffff;
+  --color-destructive: #f87171;
+  --color-destructive-hover: #ef4444;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+
+  /* React Flow */
+  .react-flow__controls-button {
+    background-color: var(--color-elevated);
+    border-color: var(--color-border-strong);
+    fill: var(--color-fg-secondary);
+  }
+
+  .react-flow__controls-button:hover {
+    background-color: var(--color-border-strong);
+  }
+
+  .react-flow__minimap {
+    background-color: var(--color-surface);
+  }
+
+  .react-flow__background {
+    background-color: var(--color-page);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-fg-muted);
+  }
+
+  /* KaTeX */
+  .katex {
+    color: inherit;
+  }
+}
+
+/* ─── Markdown Prose ─── */
+.markdown-body {
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.markdown-body h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.3em;
+}
+
+.markdown-body h2 {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+}
+
+.markdown-body h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+}
+
+.markdown-body p {
+  margin: 0.5em 0;
+}
+
+.markdown-body p:first-child {
+  margin-top: 0;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body ul, .markdown-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
+.markdown-body li {
+  margin: 0.25em 0;
+}
+
+.markdown-body pre {
+  margin: 0.75em 0;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.markdown-body blockquote {
+  margin: 0.5em 0;
+  padding: 0.25em 1em;
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-fg-secondary);
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+}
+
+.markdown-body th, .markdown-body td {
+  border: 1px solid var(--color-border);
+  padding: 0.4em 0.8em;
+  text-align: left;
+}
+
+.markdown-body th {
+  background-color: var(--color-elevated);
+  font-weight: 600;
+}
+
+.markdown-body hr {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.markdown-body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.markdown-body a:hover {
+  color: var(--color-accent-hover);
+}
+
+/* ─── Mermaid Diagrams ─── */
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ─── Streaming cursor ─── */
+@keyframes cursor-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--color-accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: cursor-breathe 1.2s ease-in-out infinite;
+}
+
+/* ─── Thinking dots ─── */
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+}
+
+.thinking-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-fg-muted);
+  margin: 0 2px;
+  animation: dot-bounce 1.4s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.16s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+/* ─── Tooltip ─── */
+.tooltip-trigger {
+  position: relative;
+}
+
+.tooltip-trigger::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-fg-primary);
+  color: var(--color-page);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 50;
+}
+
+.tooltip-trigger:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}

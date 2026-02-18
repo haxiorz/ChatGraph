@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  system
+  user
+  assistant
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  nodes     Node[]
+}
+
+model Node {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parentId       String?
+  parent         Node?        @relation("NodeTree", fields: [parentId], references: [id])
+  children       Node[]       @relation("NodeTree")
+  role           Role
+  content        String
+  model          String?
+  metadata       Json?
+  isMergeNode    Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  mergeChildren  MergeEdge[]  @relation("MergeParent")
+  mergeParents   MergeEdge[]  @relation("MergeChild")
+
+  @@index([conversationId])
+  @@index([parentId])
+}
+
+model MergeEdge {
+  id          String @id @default(uuid())
+  childId     String
+  child       Node   @relation("MergeChild", fields: [childId], references: [id], onDelete: Cascade)
+  parentId    String
+  parent      Node   @relation("MergeParent", fields: [parentId], references: [id], onDelete: Cascade)
+  branchOrder Int    @default(0)
+
+  @@unique([childId, parentId])
+  @@index([childId])
+  @@index([parentId])
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value Json
+}
+
+model Prompt {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @default("")
+  content     String
+  isBuiltIn   Boolean  @default(false)
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
