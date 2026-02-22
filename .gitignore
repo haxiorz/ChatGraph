@@ -48,6 +48,9 @@ pnpm-debug.log*
 # Testing
 coverage/
 
+# Uploads (user-uploaded files)
+uploads/
+
 # Misc
 *.tgz
 .cache/

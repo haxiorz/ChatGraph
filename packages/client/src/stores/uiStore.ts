@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { StreamState } from '../types/index'
+import type { StreamState, ThinkingLevel, RoutingTier, RoutingTierConfig, RoutingDecision } from '../types/index'
 
 interface CompareState {
   isComparing: boolean
@@ -9,6 +9,8 @@ interface CompareState {
 }
 
 export type LayoutDirection = 'TB' | 'LR'
+export type LayoutAlgorithm = 'layered' | 'mrtree' | 'force' | 'radial'
+export type BackgroundPattern = 'dots' | 'lines' | 'cross' | 'none'
 
 export type HeatmapMetric = 'tokens' | 'branches' | 'recency'
 
@@ -41,11 +43,22 @@ interface UIStore {
   compareState: CompareState
   collapsedNodeIds: Set<string>
   layoutDirection: LayoutDirection
+  layoutAlgorithm: LayoutAlgorithm
+  backgroundPattern: BackgroundPattern
+  fisheyeEnabled: boolean
+  dynamicNodeSizing: boolean
+  showEdgeTokens: boolean
   analyticsOpen: boolean
   heatmapState: HeatmapState
   replayState: ReplayState
   labelFilter: LabelFilterState
   summarizeDismissed: Set<string>
+  // F079: Thinking level
+  thinkingLevel: ThinkingLevel
+  // F078: Smart routing
+  smartRouterEnabled: boolean
+  routingTierConfig: RoutingTierConfig[]
+  lastRoutingDecision: RoutingDecision | null
 
   setChatPanelWidth: (width: number) => void
   setStreamState: (state: StreamState) => void
@@ -59,6 +72,11 @@ interface UIStore {
   toggleCollapsed: (nodeId: string) => void
   clearCollapsed: () => void
   setLayoutDirection: (direction: LayoutDirection) => void
+  setLayoutAlgorithm: (algorithm: LayoutAlgorithm) => void
+  setBackgroundPattern: (pattern: BackgroundPattern) => void
+  toggleFisheye: () => void
+  toggleDynamicNodeSizing: () => void
+  toggleEdgeTokens: () => void
   setAnalyticsOpen: (open: boolean) => void
   toggleHeatmap: () => void
   setHeatmapMetric: (metric: HeatmapMetric) => void
@@ -71,6 +89,12 @@ interface UIStore {
   setShowUnlabeled: (show: boolean) => void
   clearLabelFilters: () => void
   dismissSummarize: (conversationId: string) => void
+  // F079: Thinking level
+  setThinkingLevel: (level: ThinkingLevel) => void
+  // F078: Smart routing
+  toggleSmartRouter: () => void
+  setRoutingTierConfig: (config: RoutingTierConfig[]) => void
+  setLastRoutingDecision: (decision: RoutingDecision | null) => void
 }
 
 const INITIAL_COMPARE_STATE: CompareState = {
@@ -81,10 +105,54 @@ const INITIAL_COMPARE_STATE: CompareState = {
 }
 
 const LAYOUT_STORAGE_KEY = 'chatgraph-layout-direction'
+const LAYOUT_ALGO_STORAGE_KEY = 'chatgraph-layout-algorithm'
+const BG_PATTERN_STORAGE_KEY = 'chatgraph-bg-pattern'
+const THINKING_LEVEL_KEY = 'chatgraph-thinking-level'
+const SMART_ROUTER_KEY = 'chatgraph-smart-router'
+const ROUTING_CONFIG_KEY = 'chatgraph-routing-config'
 
 function loadLayoutDirection(): LayoutDirection {
   const stored = localStorage.getItem(LAYOUT_STORAGE_KEY)
   return stored === 'LR' ? 'LR' : 'TB'
+}
+
+function loadLayoutAlgorithm(): LayoutAlgorithm {
+  const stored = localStorage.getItem(LAYOUT_ALGO_STORAGE_KEY)
+  if (stored === 'mrtree' || stored === 'force' || stored === 'radial') return stored
+  return 'layered'
+}
+
+function loadBackgroundPattern(): BackgroundPattern {
+  const stored = localStorage.getItem(BG_PATTERN_STORAGE_KEY)
+  if (stored === 'lines' || stored === 'cross' || stored === 'none') return stored
+  return 'dots'
+}
+
+function loadThinkingLevel(): ThinkingLevel {
+  const stored = localStorage.getItem(THINKING_LEVEL_KEY)
+  if (stored === 'thinking' || stored === 'deep') return stored
+  return 'fast'
+}
+
+function loadSmartRouter(): boolean {
+  return localStorage.getItem(SMART_ROUTER_KEY) === 'true'
+}
+
+const DEFAULT_ROUTING_CONFIG: RoutingTierConfig[] = [
+  { tier: 'simple', label: 'Simple', description: 'Short answers, acknowledgments', modelId: 'openai/gpt-4o-mini' },
+  { tier: 'standard', label: 'Standard', description: 'General questions and tasks', modelId: 'openai/gpt-4o' },
+  { tier: 'complex', label: 'Complex', description: 'Analysis, reasoning, long prompts', modelId: 'anthropic/claude-sonnet-4' },
+  { tier: 'code', label: 'Code', description: 'Programming and technical tasks', modelId: 'anthropic/claude-sonnet-4' },
+]
+
+function loadRoutingConfig(): RoutingTierConfig[] {
+  const stored = localStorage.getItem(ROUTING_CONFIG_KEY)
+  if (!stored) return DEFAULT_ROUTING_CONFIG
+  try {
+    return JSON.parse(stored) as RoutingTierConfig[]
+  } catch {
+    return DEFAULT_ROUTING_CONFIG
+  }
 }
 
 export const useUIStore = create<UIStore>((set, get) => ({
@@ -98,11 +166,20 @@ export const useUIStore = create<UIStore>((set, get) => ({
   compareState: INITIAL_COMPARE_STATE,
   collapsedNodeIds: new Set<string>(),
   layoutDirection: loadLayoutDirection(),
+  layoutAlgorithm: loadLayoutAlgorithm(),
+  backgroundPattern: loadBackgroundPattern(),
+  fisheyeEnabled: false,
+  dynamicNodeSizing: false,
+  showEdgeTokens: false,
   analyticsOpen: false,
   heatmapState: { enabled: false, metric: 'tokens' },
   replayState: { isReplaying: false, replayIndex: 0, maxIndex: 0, isPlaying: false, playbackSpeed: 1 },
   labelFilter: { activeFilters: new Set<string>(), showUnlabeled: true },
   summarizeDismissed: new Set<string>(),
+  thinkingLevel: loadThinkingLevel(),
+  smartRouterEnabled: loadSmartRouter(),
+  routingTierConfig: loadRoutingConfig(),
+  lastRoutingDecision: null,
 
   setChatPanelWidth: (width: number) => set({ chatPanelWidth: width }),
   setStreamState: (streamState: StreamState) => set({ streamState }),
@@ -129,6 +206,17 @@ export const useUIStore = create<UIStore>((set, get) => ({
     localStorage.setItem(LAYOUT_STORAGE_KEY, direction)
     set({ layoutDirection: direction })
   },
+  setLayoutAlgorithm: (algorithm: LayoutAlgorithm) => {
+    localStorage.setItem(LAYOUT_ALGO_STORAGE_KEY, algorithm)
+    set({ layoutAlgorithm: algorithm })
+  },
+  setBackgroundPattern: (pattern: BackgroundPattern) => {
+    localStorage.setItem(BG_PATTERN_STORAGE_KEY, pattern)
+    set({ backgroundPattern: pattern })
+  },
+  toggleFisheye: () => set({ fisheyeEnabled: !get().fisheyeEnabled }),
+  toggleDynamicNodeSizing: () => set({ dynamicNodeSizing: !get().dynamicNodeSizing }),
+  toggleEdgeTokens: () => set({ showEdgeTokens: !get().showEdgeTokens }),
   setAnalyticsOpen: (analyticsOpen: boolean) => set({ analyticsOpen }),
   toggleHeatmap: () => {
     const current = get().heatmapState
@@ -176,5 +264,21 @@ export const useUIStore = create<UIStore>((set, get) => ({
     const next = new Set(get().summarizeDismissed)
     next.add(conversationId)
     set({ summarizeDismissed: next })
+  },
+  setThinkingLevel: (level: ThinkingLevel) => {
+    localStorage.setItem(THINKING_LEVEL_KEY, level)
+    set({ thinkingLevel: level })
+  },
+  toggleSmartRouter: () => {
+    const next = !get().smartRouterEnabled
+    localStorage.setItem(SMART_ROUTER_KEY, String(next))
+    set({ smartRouterEnabled: next })
+  },
+  setRoutingTierConfig: (config: RoutingTierConfig[]) => {
+    localStorage.setItem(ROUTING_CONFIG_KEY, JSON.stringify(config))
+    set({ routingTierConfig: config })
+  },
+  setLastRoutingDecision: (decision: RoutingDecision | null) => {
+    set({ lastRoutingDecision: decision })
   },
 }))

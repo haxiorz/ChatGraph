@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { modalOverlay, modalContent, EASE_OUT_FAST } from '../../utils/animations'
+import { modalOverlay, modalContent, SPRING_GLASS } from '../../utils/animations'
 
 interface ModalProps {
   open: boolean
@@ -45,22 +45,22 @@ export function Modal({ open, onClose, children, className = '', top = false }: 
           initial="initial"
           animate="animate"
           exit="exit"
-          transition={EASE_OUT_FAST}
+          transition={{ duration: 0.15 }}
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={onClose}
           />
           {/* Panel */}
           <motion.div
             ref={panelRef}
-            className={`relative z-10 w-full rounded-xl border border-border bg-surface shadow-md ${className}`}
+            className={`glass-strong relative z-10 w-full rounded-xl border border-[var(--glass-border)] shadow-xl ${className}`}
             variants={modalContent}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ ...EASE_OUT_FAST, duration: 0.2 }}
+            transition={SPRING_GLASS}
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >

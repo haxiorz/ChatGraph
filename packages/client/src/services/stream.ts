@@ -6,6 +6,9 @@ interface StreamCallbacks {
   onDone: (node: ConversationNode) => void
   onError: (message: string) => void
   onTitle?: (title: string) => void
+  onThinking?: (content: string) => void
+  onToolCallStart?: (step: { stepId: string; name: string; arguments: string }) => void
+  onToolCallEnd?: (step: { stepId: string; result: string }) => void
 }
 
 export async function consumeStream(
@@ -77,6 +80,32 @@ export async function consumeStream(
                 (parsed as { title: string }).title,
               )
               break
+            case 'thinking':
+              callbacks.onThinking?.(
+                (parsed as { content: string }).content,
+              )
+              break
+            case 'toolCallStart': {
+              const tsStep = parsed as { stepId?: string; name?: string; arguments?: string }
+              if (tsStep.stepId && tsStep.name) {
+                callbacks.onToolCallStart?.({
+                  stepId: tsStep.stepId,
+                  name: tsStep.name,
+                  arguments: tsStep.arguments ?? '',
+                })
+              }
+              break
+            }
+            case 'toolCallEnd': {
+              const teStep = parsed as { stepId?: string; result?: string }
+              if (teStep.stepId) {
+                callbacks.onToolCallEnd?.({
+                  stepId: teStep.stepId,
+                  result: teStep.result ?? '',
+                })
+              }
+              break
+            }
             case 'error':
               callbacks.onError(
                 (parsed as { message: string }).message,

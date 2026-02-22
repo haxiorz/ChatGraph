@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../prisma.js'
 import { AppError } from '../types/index.js'
 import { buildPath, pathToMessages } from '../utils/tree.js'
+import { parseThinkingSteps } from '../utils/thinking.js'
 import * as settingsService from './settingsService.js'
 
 async function generateTitle(
@@ -59,11 +60,152 @@ async function generateTitle(
   }
 }
 
+const ENHANCE_MODEL = 'google/gemini-3-flash-preview'
+
+const ENHANCE_SYSTEM_PROMPT = `You are an expert prompt engineer. Your job is to rewrite the user's draft prompt so it produces the best possible response from a large language model. Apply the following techniques proportionally — simple prompts get light touch-ups, complex prompts get the full treatment.
+
+<techniques>
+
+1. BE CLEAR, DIRECT, AND DETAILED
+- Replace vague or ambiguous language with specific, concrete instructions.
+- State exactly what output is wanted: format, length, style, structure, audience.
+- Add context the LLM needs: what the result will be used for, who the audience is, what workflow it belongs to, and what a successful response looks like.
+- Give instructions as sequential numbered steps when the task has multiple parts.
+- Explain WHY a constraint matters when relevant (e.g., "Use plain language because the audience is non-technical" rather than just "Use plain language"). The model generalizes better from motivations than bare rules.
+
+2. USE XML TAGS FOR STRUCTURE
+- When the prompt has distinct components (context, instructions, data, output format), separate them with descriptive XML tags such as <instructions>, <context>, <data>, <constraints>, <output_format>.
+- Use consistent, descriptive tag names and reference them in the instructions (e.g., "Using the data in <data> tags, ...").
+- Nest tags for hierarchical content.
+- If the prompt includes input data, wrap it in tags to clearly separate it from instructions.
+
+3. SPECIFY OUTPUT FORMAT
+- If the prompt lacks an explicit output format, add one (e.g., "Return your answer as a markdown table", "Respond with a JSON object matching this schema: ...", "Write 3 bullet points").
+- When requesting structured output, describe the exact schema or give a formatting example in <formatting_example> tags.
+
+4. POSITIVE FRAMING
+- Convert negative instructions ("don't do X", "never Y") into positive ones ("do Z instead"). Tell the model what TO do rather than what NOT to do.
+- Example: Instead of "Don't use jargon" → "Use plain language accessible to a general audience."
+
+5. CHAIN OF THOUGHT FOR COMPLEX TASKS
+- For tasks involving analysis, math, logic, multi-step reasoning, or decisions with many factors, add an instruction to think step-by-step before giving the final answer.
+- Use structured CoT: instruct the model to put its reasoning in <thinking> tags and its final answer in <answer> tags, so the reasoning is separated from the output.
+- Only add CoT when the task genuinely benefits from it. Do not add it to simple factual questions.
+
+6. ROLE ASSIGNMENT
+- When the task would benefit from domain expertise, add a specific role at the start (e.g., "You are a senior backend engineer specializing in distributed systems" rather than just "You are a programmer").
+- Make the role specific: include domain, seniority level, and relevant specialization.
+- Only add a role when it meaningfully improves the response; do not add generic roles to simple questions.
+
+7. TASK DECOMPOSITION
+- If the prompt asks for a complex multi-part task, break it into clearly numbered subtasks, each with a single objective.
+- Order subtasks logically so each builds on the previous.
+
+8. LONG CONTEXT HANDLING
+- If the prompt includes long input data (documents, code, etc.), place the data ABOVE the instructions/query and the query at the end. This ordering improves response quality.
+- For multiple documents, wrap each in <document> tags with source metadata.
+- When asking about long content, instruct the model to first find and quote relevant passages before answering to ground the response.
+
+</techniques>
+
+<rules>
+- Preserve the user's original intent and meaning exactly. Never change what they are asking for.
+- Do NOT add few-shot examples to the prompt.
+- Do NOT make simple, short prompts unnecessarily verbose. "What is 2+2?" should stay simple. A one-line factual question needs at most minor clarification, not XML tags and CoT.
+- Scale enhancement proportionally to complexity: simple prompts get light clarity improvements; complex multi-part prompts get full structural treatment with XML tags, CoT, output format, and role.
+- Return ONLY the enhanced prompt text. No preamble, no explanation, no commentary, no meta-discussion.
+- If the prompt is already well-structured, make only minimal improvements or return it nearly unchanged.
+- Do NOT wrap the entire output in a code block or markdown quotes.
+- Do NOT add instructions that contradict or override what the user wrote.
+</rules>`
+
+export async function enhancePrompt(
+  content: string,
+  apiKey: string,
+): Promise<string> {
+  try {
+    const response = await Promise.race([
+      fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'http://localhost:5173',
+          'X-Title': 'ChatGraph',
+        },
+        body: JSON.stringify({
+          model: ENHANCE_MODEL,
+          messages: [
+            { role: 'system', content: ENHANCE_SYSTEM_PROMPT },
+            { role: 'user', content },
+          ],
+          max_tokens: 2048,
+          temperature: 0.4,
+        }),
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 15000),
+      ),
+    ])
+
+    if (!response.ok) return content
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>
+    }
+    const enhanced = data.choices?.[0]?.message?.content?.trim()
+    return enhanced && enhanced.length > 0 ? enhanced : content
+  } catch {
+    return content
+  }
+}
+
 interface UsageData {
   prompt_tokens?: number
   completion_tokens?: number
   total_tokens?: number
   [key: string]: unknown
+}
+
+interface ThinkingInput {
+  level: 'fast' | 'thinking' | 'deep'
+  budgetTokens?: number
+}
+
+function buildThinkingParams(model: string, thinking?: ThinkingInput): Record<string, unknown> {
+  if (!thinking || thinking.level === 'fast') return {}
+
+  // Claude models: use thinking parameter
+  if (model.includes('claude')) {
+    const budgetTokens = thinking.level === 'deep' ? 32000 : 10000
+    return {
+      thinking: {
+        type: 'enabled',
+        budget_tokens: thinking.budgetTokens ?? budgetTokens,
+      },
+    }
+  }
+
+  // OpenAI o-series: use reasoning_effort
+  if (model.includes('openai/o')) {
+    return {
+      reasoning_effort: thinking.level === 'deep' ? 'high' : 'medium',
+    }
+  }
+
+  // DeepSeek reasoning models
+  if (model.includes('deepseek') && model.includes('reasoner')) {
+    return {} // DeepSeek reasoner models auto-include reasoning
+  }
+
+  // Other models: no-op
+  return {}
+}
+
+interface ToolCallDelta {
+  index: number
+  id?: string
+  function?: { name?: string; arguments?: string }
 }
 
 export async function suggestTitles(
@@ -168,7 +310,7 @@ export async function streamRegeneration(
 
   // Build the path up to the user node to get the message history
   const path = buildPath(allNodes, userNodeId)
-  const messages = pathToMessages(path)
+  const messages = await pathToMessages(path)
 
   const apiKey = await settingsService.get('openrouter_api_key')
   if (!apiKey) {
@@ -307,6 +449,9 @@ interface CompleteParams {
   content: string
   model: string
   temperature?: number
+  thinking?: ThinkingInput
+  routingInfo?: { tier: string; reason: string; originalModel: string }
+  files?: Array<{ id: string; name: string; type: string; size: number; category: string; storagePath: string; extractedText?: string }>
 }
 
 export async function streamCompletion(
@@ -314,7 +459,7 @@ export async function streamCompletion(
   res: Response,
   signal: AbortSignal,
 ) {
-  const { conversationId, parentNodeId, content, model, temperature } = params
+  const { conversationId, parentNodeId, content, model, temperature, thinking, routingInfo, files } = params
   console.log(`[completion] Starting: conv=${conversationId} model=${model} content="${content.substring(0, 50)}..."`)
 
   // Get all nodes for this conversation
@@ -329,13 +474,21 @@ export async function streamCompletion(
     throw new AppError('Parent node not found', 404, 'NOT_FOUND')
   }
 
-  // Create user node
+  // Create user node (with optional file metadata)
+  const userNodeMetadata: Record<string, unknown> = {}
+  if (files && files.length > 0) {
+    userNodeMetadata.files = files
+  }
+
   const userNode = await prisma.node.create({
     data: {
       conversationId,
       parentId: parentNodeId,
       role: 'user',
       content,
+      ...(Object.keys(userNodeMetadata).length > 0
+        ? { metadata: userNodeMetadata as Prisma.InputJsonValue }
+        : {}),
     },
   })
 
@@ -345,7 +498,7 @@ export async function streamCompletion(
   // Build message path including the new user message
   const updatedNodes = [...allNodes, userNode]
   const path = buildPath(updatedNodes, userNode.id)
-  const messages = pathToMessages(path)
+  const messages = await pathToMessages(path)
 
   // Get API key from settings
   const apiKey = await settingsService.get('openrouter_api_key')
@@ -361,7 +514,12 @@ export async function streamCompletion(
   console.log(`[completion] Sending ${messages.length} messages to OpenRouter (model=${model})`)
 
   let accumulated = ''
+  let accumulatedThinking = ''
   let usage: UsageData | null = null
+  const agentSteps: Array<{ id: string; type: string; name: string; input?: string; output?: string; status: string; startedAt?: string; completedAt?: string; duration?: number }> = []
+
+  // Build thinking params
+  const thinkingParams = buildThinkingParams(model, thinking)
 
   try {
     const openRouterResponse = await fetch(
@@ -379,6 +537,7 @@ export async function streamCompletion(
           messages,
           stream: true,
           ...(temperature != null && { temperature }),
+          ...thinkingParams,
         }),
         signal,
       },
@@ -409,6 +568,9 @@ export async function streamCompletion(
     const decoder = new TextDecoder()
     let buffer = ''
 
+    // Tool call buffering
+    const toolCallBuffers = new Map<number, { id: string; name: string; arguments: string }>()
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -425,16 +587,65 @@ export async function streamCompletion(
 
         try {
           const parsed = JSON.parse(data) as {
-            choices?: Array<{ delta?: { content?: string } }>
+            choices?: Array<{
+              delta?: {
+                content?: string
+                reasoning_content?: string
+                tool_calls?: ToolCallDelta[]
+              }
+            }>
             usage?: UsageData
           }
-          const token = parsed.choices?.[0]?.delta?.content
+
+          const delta = parsed.choices?.[0]?.delta
+
+          // Regular content token
+          const token = delta?.content
           if (token) {
             accumulated += token
             res.write(
               `event: token\ndata: ${JSON.stringify({ content: token })}\n\n`,
             )
           }
+
+          // Reasoning/thinking content
+          const reasoningToken = delta?.reasoning_content
+          if (reasoningToken) {
+            accumulatedThinking += reasoningToken
+            res.write(
+              `event: thinking\ndata: ${JSON.stringify({ content: reasoningToken })}\n\n`,
+            )
+          }
+
+          // Tool calls
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index
+              if (!toolCallBuffers.has(idx)) {
+                toolCallBuffers.set(idx, { id: tc.id ?? `tool-${idx}`, name: '', arguments: '' })
+              }
+              const buf = toolCallBuffers.get(idx)!
+              if (tc.id) buf.id = tc.id
+              if (tc.function?.name) {
+                buf.name += tc.function.name
+                res.write(
+                  `event: toolCallStart\ndata: ${JSON.stringify({ stepId: buf.id, name: buf.name, arguments: '' })}\n\n`,
+                )
+                agentSteps.push({
+                  id: buf.id,
+                  type: 'tool_call',
+                  name: buf.name,
+                  input: '',
+                  status: 'running',
+                  startedAt: new Date().toISOString(),
+                })
+              }
+              if (tc.function?.arguments) {
+                buf.arguments += tc.function.arguments
+              }
+            }
+          }
+
           if (parsed.usage) {
             usage = parsed.usage
           }
@@ -444,7 +655,34 @@ export async function streamCompletion(
       }
     }
 
-    console.log(`[completion] Stream complete, accumulated ${accumulated.length} chars`)
+    // Finalize tool call buffers
+    for (const [, buf] of toolCallBuffers) {
+      const step = agentSteps.find((s) => s.id === buf.id)
+      if (step) {
+        step.input = buf.arguments
+        step.status = 'completed'
+        step.completedAt = new Date().toISOString()
+      }
+      res.write(
+        `event: toolCallEnd\ndata: ${JSON.stringify({ stepId: buf.id, result: buf.arguments })}\n\n`,
+      )
+    }
+
+    console.log(`[completion] Stream complete, accumulated ${accumulated.length} chars, thinking ${accumulatedThinking.length} chars`)
+
+    // Build metadata
+    const metadata: Record<string, unknown> = {}
+    if (usage) metadata.usage = usage
+    if (accumulatedThinking) {
+      const thinkingSteps = parseThinkingSteps(accumulatedThinking)
+      metadata.thinking = {
+        level: thinking?.level ?? 'fast',
+        content: accumulatedThinking,
+        steps: thinkingSteps,
+      }
+    }
+    if (routingInfo) metadata.routingInfo = routingInfo
+    if (agentSteps.length > 0) metadata.agentSteps = agentSteps
 
     // Save assistant node
     const assistantNode = await prisma.node.create({
@@ -454,7 +692,7 @@ export async function streamCompletion(
         role: 'assistant',
         content: accumulated,
         model,
-        metadata: (usage ? { usage } : undefined) as Prisma.InputJsonValue | undefined,
+        metadata: (Object.keys(metadata).length > 0 ? metadata : undefined) as Prisma.InputJsonValue | undefined,
       },
     })
 
@@ -480,6 +718,10 @@ export async function streamCompletion(
     if (signal.aborted) {
       // Client disconnected — save partial content
       if (accumulated.length > 0) {
+        const partialMeta: Record<string, unknown> = { partial: true }
+        if (usage) partialMeta.usage = usage
+        if (accumulatedThinking) partialMeta.thinking = { content: accumulatedThinking }
+        if (agentSteps.length > 0) partialMeta.agentSteps = agentSteps
         await prisma.node.create({
           data: {
             conversationId,
@@ -487,7 +729,7 @@ export async function streamCompletion(
             role: 'assistant',
             content: accumulated,
             model,
-            metadata: { partial: true, ...(usage ? { usage } : {}) } as Prisma.InputJsonValue,
+            metadata: partialMeta as Prisma.InputJsonValue,
           },
         })
       }
@@ -533,7 +775,7 @@ export async function streamSummarization(
   }
 
   const summarizedNodeIds = path.map((n) => n.id)
-  const messages = pathToMessages(path)
+  const messages = await pathToMessages(path)
   const messageCount = messages.length
 
   // Build summarization prompt
@@ -740,7 +982,7 @@ export async function streamTournament(
   // Build message path once
   const updatedNodes = [...allNodes, userNode]
   const path = buildPath(updatedNodes, userNode.id)
-  const messages = pathToMessages(path)
+  const messages = await pathToMessages(path)
 
   const apiKey = await settingsService.get('openrouter_api_key')
   if (!apiKey) {
@@ -923,7 +1165,7 @@ export async function streamMerge(
   )
   const rightUnique = rightPath.slice(commonAncestorIdx + 1)
 
-  const messages = pathToMessages(sharedPrefix)
+  const messages = await pathToMessages(sharedPrefix)
   if (leftUnique.length > 0) {
     messages.push({
       role: 'user',

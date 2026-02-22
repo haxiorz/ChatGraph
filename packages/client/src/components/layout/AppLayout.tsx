@@ -1,5 +1,6 @@
-import { useEffect, useCallback, useRef } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { useEffect, useCallback, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { GitBranch } from 'lucide-react'
 import { useConversation } from '../../hooks/useConversation'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -13,7 +14,6 @@ import { ShortcutsDialog } from '../shared/ShortcutsDialog'
 import { SearchModal } from '../shared/SearchModal'
 import { ComparisonView } from '../shared/ComparisonView'
 import { ConversationList } from '../chat/ConversationList'
-import { LoadingSpinner } from '../shared/LoadingSpinner'
 import { ToastContainer } from '../ui/Toast'
 import { AnalyticsPanel } from '../shared/AnalyticsPanel'
 import { ActivityFeed } from '../shared/ActivityFeed'
@@ -44,6 +44,7 @@ export function AppLayout() {
   }, [loadSettings, loadConversations])
 
   const isResizing = useRef(false)
+  const [dividerHovered, setDividerHovered] = useState(false)
 
   const clampWidth = useCallback(
     (clientX: number) => {
@@ -98,14 +99,27 @@ export function AppLayout() {
 
   if (!loaded) {
     return (
-      <div className="flex h-full items-center justify-center bg-page">
-        <LoadingSpinner size="lg" />
+      <div className="gradient-mesh-bg flex h-full flex-col items-center justify-center gap-4">
+        <div className="relative">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg shadow-accent-lg" style={{ backgroundImage: 'var(--gradient-accent)' }}>
+            <GitBranch size={24} className="text-white" />
+          </div>
+          <div className="absolute inset-0 rounded-lg bg-accent blur-xl opacity-30" />
+        </div>
+        <motion.div
+          className="text-sm text-fg-muted"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          Loading ChatGraph...
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-full flex-col bg-page">
+    <div className="gradient-mesh-bg flex h-full flex-col">
       <Header />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {activeConversationId ? (
@@ -119,12 +133,23 @@ export function AppLayout() {
               >
                 <ChatPanel />
               </div>
+              {/* Resize divider */}
               <div
                 role="separator"
-                className="w-px cursor-col-resize bg-border hover:bg-accent transition-colors"
+                className="relative w-3 cursor-col-resize flex items-center justify-center group"
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
-              />
+                onMouseEnter={() => setDividerHovered(true)}
+                onMouseLeave={() => setDividerHovered(false)}
+              >
+                <div
+                  className={`h-full transition-all duration-150 ${
+                    dividerHovered
+                      ? 'w-1 bg-accent/60 rounded-full'
+                      : 'w-px bg-[var(--glass-border)]'
+                  }`}
+                />
+              </div>
               <div className="flex-1 overflow-hidden">
                 <GraphPanel />
               </div>

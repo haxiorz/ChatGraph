@@ -16,11 +16,15 @@
     "@prisma/client": "^6.3.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "multer": "^2.0.2",
+    "pdf-parse": "^2.4.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^6.0.3",
     "@vitest/coverage-v8": "^4.0.18",
     "prisma": "^6.3.1",

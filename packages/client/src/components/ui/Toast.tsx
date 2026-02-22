@@ -23,12 +23,19 @@ const BG_MAP = {
   warning: 'border-warning/30',
 }
 
+const PROGRESS_COLOR_MAP = {
+  success: 'bg-success',
+  error: 'bg-destructive',
+  info: 'bg-accent',
+  warning: 'bg-warning',
+}
+
 export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts)
   const removeToast = useToastStore((s) => s.removeToast)
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2">
+    <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2">
       <AnimatePresence mode="popLayout">
         {toasts.map((t) => {
           const Icon = ICON_MAP[t.type]
@@ -36,13 +43,13 @@ export function ToastContainer() {
             <motion.div
               key={t.id}
               layout
-              initial={{ opacity: 0, x: 80, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 80, scale: 0.95 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+              initial={{ opacity: 0, y: 24, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.8, 0.25, 1] }}
               role="alert"
               aria-live="assertive"
-              className={`flex items-start gap-2 rounded-lg border bg-surface px-4 py-3 shadow-lg ${BG_MAP[t.type]}`}
+              className={`glass-elevated relative overflow-hidden flex items-start gap-2 rounded-xl border backdrop-blur-xl px-4 py-3 shadow-lg ${BG_MAP[t.type]}`}
             >
               <Icon size={16} className={`mt-0.5 shrink-0 ${COLOR_MAP[t.type]}`} />
               <span className="text-sm text-fg-primary">{t.message}</span>
@@ -64,6 +71,11 @@ export function ToastContainer() {
               >
                 <X size={14} />
               </button>
+              {/* Auto-dismiss progress bar */}
+              <div
+                className={`absolute bottom-0 left-0 h-[2px] ${PROGRESS_COLOR_MAP[t.type]} opacity-40`}
+                style={{ animation: 'toast-progress 5s linear forwards' }}
+              />
             </motion.div>
           )
         })}

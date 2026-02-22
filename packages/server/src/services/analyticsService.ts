@@ -84,8 +84,11 @@ export async function analyzeConversation(params: {
 
   // Format the conversation tree
   const treeText = targetNodeId
-    ? pathToMessages(nodesToAnalyze)
-        .map((m) => `[${m.role}]: ${m.content.substring(0, 500)}`)
+    ? (await pathToMessages(nodesToAnalyze))
+        .map((m) => {
+          const text = typeof m.content === 'string' ? m.content : m.content.map((p) => ('text' in p ? p.text : '[image]')).join(' ')
+          return `[${m.role}]: ${text.substring(0, 500)}`
+        })
         .join('\n\n')
     : formatTree(nodesToAnalyze)
 

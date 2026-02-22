@@ -12,7 +12,7 @@ The frontend is a React + TypeScript SPA built with Vite, located in `packages/c
 | Language         | TypeScript 5.7 (strict)    | Type safety                          | Installed   |
 | Bundler          | Vite 6                     | Fast HMR, ESBuild-based             | Installed   |
 | Graph rendering  | @xyflow/react (React Flow v12) | Interactive node-based graphs    | Installed   |
-| Graph layout     | dagre                      | Automatic tree layout computation    | Installed   |
+| Graph layout     | elkjs                      | Async layout engine (layered, tree, force, radial) | Installed   |
 | Styling          | Tailwind CSS 4             | Utility-first CSS                    | Installed   |
 | State management | Zustand 5                  | Lightweight global state             | Installed   |
 | HTTP client      | fetch (native)             | API calls; SSE for streaming         | Built-in    |

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { X, Zap, Swords, AlertCircle, ScrollText, RefreshCw, Type, Info, Trash2 } from 'lucide-react'
+import { X, Zap, Swords, AlertCircle, ScrollText, RefreshCw, Type, Info, Trash2, Sparkles } from 'lucide-react'
 import { useActivityStore } from '../../stores/activityStore'
 import type { ActivityEventType } from '../../stores/activityStore'
 import { modalOverlay, EASE_OUT_FAST } from '../../utils/animations'
@@ -13,6 +13,7 @@ const EVENT_ICONS: Record<ActivityEventType, typeof Zap> = {
   regenerate: RefreshCw,
   title: Type,
   info: Info,
+  routing: Sparkles,
 }
 
 const EVENT_COLORS: Record<ActivityEventType, string> = {
@@ -23,6 +24,7 @@ const EVENT_COLORS: Record<ActivityEventType, string> = {
   regenerate: 'text-blue-500',
   title: 'text-purple-500',
   info: 'text-fg-muted',
+  routing: 'text-amber-400',
 }
 
 function formatTime(timestamp: number): string {

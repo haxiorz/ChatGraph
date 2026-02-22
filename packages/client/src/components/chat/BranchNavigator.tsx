@@ -49,18 +49,18 @@ export function BranchNavigator({
   }
 
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-full border border-border px-1 py-0.5 text-xs text-fg-muted">
+    <div className="glass inline-flex items-center gap-1 rounded-md border border-[var(--glass-border)] px-2 py-1 text-xs text-fg-muted shadow-xs">
       <button
         onClick={(e) => {
           e.stopPropagation()
           onNavigate(-1)
         }}
         disabled={currentIndex === 0}
-        className="rounded p-0.5 hover:bg-elevated disabled:opacity-30 transition-colors"
+        className="rounded p-1 hover:bg-[var(--glass-bg-elevated)] disabled:opacity-30 transition-colors"
       >
-        <ChevronLeft size={10} />
+        <ChevronLeft size={14} />
       </button>
-      <span className="min-w-[2rem] text-center text-[11px]">
+      <span className="min-w-[2.5rem] text-center text-[11px] tabular-nums">
         {currentIndex + 1}/{totalSiblings}
       </span>
       <button
@@ -69,9 +69,9 @@ export function BranchNavigator({
           onNavigate(1)
         }}
         disabled={currentIndex === totalSiblings - 1}
-        className="rounded p-0.5 hover:bg-elevated disabled:opacity-30 transition-colors"
+        className="rounded p-1 hover:bg-[var(--glass-bg-elevated)] disabled:opacity-30 transition-colors"
       >
-        <ChevronRight size={10} />
+        <ChevronRight size={14} />
       </button>
       {totalSiblings >= 2 && nodeId && (
         <button

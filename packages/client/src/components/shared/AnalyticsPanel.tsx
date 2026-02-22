@@ -59,10 +59,10 @@ function CollapsibleSection({
   const [expanded, setExpanded] = useState(true)
 
   return (
-    <div className="rounded-lg border border-border bg-surface">
+    <div className="glass rounded-xl border border-[var(--glass-border)] shadow-xs">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-fg-secondary hover:bg-elevated transition-colors"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-fg-secondary hover:bg-[var(--glass-bg-elevated)] transition-colors"
       >
         <Icon size={14} className={iconColor} />
         <span className="flex-1">{title}</span>
@@ -74,7 +74,7 @@ function CollapsibleSection({
         )}
       </button>
       {expanded && (
-        <div className="border-t border-border px-3 py-2">
+        <div className="border-t border-[var(--glass-border)] px-3 py-2">
           {items.length === 0 ? (
             <p className="text-xs text-fg-muted italic">{emptyText}</p>
           ) : (
@@ -138,17 +138,17 @@ export function AnalyticsPanel() {
         onClick={() => setAnalyticsOpen(false)}
       />
       <motion.div
-        className="fixed right-0 top-0 z-50 flex h-full w-[480px] max-w-[90vw] flex-col border-l border-border bg-page shadow-xl"
+        className="glass-strong fixed right-0 top-0 z-50 flex h-full w-[520px] max-w-[90vw] flex-col border-l border-[var(--glass-border)] shadow-xl"
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={EASE_OUT_FAST}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-5 py-4">
           <div className="flex items-center gap-2">
             <Brain size={18} className="text-accent" />
-            <h2 className="text-sm font-semibold text-fg-primary">
+            <h2 className="text-base font-semibold text-fg-primary">
               Conversation Analytics
             </h2>
           </div>
@@ -162,14 +162,14 @@ export function AnalyticsPanel() {
         </div>
 
         {/* Controls */}
-        <div className="space-y-3 border-b border-border px-4 py-3">
+        <div className="space-y-3 border-b border-[var(--glass-border)] px-4 py-3">
           {/* Scope toggle */}
-          <div className="flex rounded-lg border border-border">
+          <div className="relative flex rounded-lg border border-[var(--glass-border)]">
             <button
               onClick={() => setScope('tree')}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`relative z-10 flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
                 scope === 'tree'
-                  ? 'bg-accent text-accent-text'
+                  ? 'text-accent-text'
                   : 'text-fg-muted hover:text-fg-primary'
               } rounded-l-lg`}
             >
@@ -177,14 +177,23 @@ export function AnalyticsPanel() {
             </button>
             <button
               onClick={() => setScope('path')}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`relative z-10 flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
                 scope === 'path'
-                  ? 'bg-accent text-accent-text'
+                  ? 'text-accent-text'
                   : 'text-fg-muted hover:text-fg-primary'
               } rounded-r-lg`}
             >
               Active Path
             </button>
+            <motion.div
+              className="absolute inset-y-0 rounded-lg bg-accent"
+              initial={false}
+              animate={{
+                left: scope === 'tree' ? '0%' : '50%',
+                right: scope === 'tree' ? '50%' : '0%',
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -224,7 +233,7 @@ export function AnalyticsPanel() {
           {result && !loading && (
             <div className="space-y-4">
               {/* Health Score */}
-              <div className="rounded-lg border border-border bg-surface p-3">
+              <div className="glass rounded-xl border border-[var(--glass-border)] p-3 shadow-xs">
                 <div className="mb-2 flex items-center gap-2">
                   <Activity size={14} className="text-accent" />
                   <span className="text-sm font-medium text-fg-secondary">
@@ -253,7 +262,7 @@ export function AnalyticsPanel() {
               </div>
 
               {/* Summary */}
-              <div className="rounded-lg border border-border bg-surface p-3">
+              <div className="glass rounded-xl border border-[var(--glass-border)] p-3 shadow-xs">
                 <h4 className="mb-1 text-xs font-medium text-fg-muted">
                   Summary
                 </h4>

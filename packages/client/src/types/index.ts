@@ -110,7 +110,68 @@ export interface DailySpendingPoint {
   completionTokens: number
 }
 
+// --- F078: Smart Model Router ---
+export type RoutingTier = 'simple' | 'standard' | 'complex' | 'code'
+
+export interface RoutingTierConfig {
+  tier: RoutingTier
+  label: string
+  description: string
+  modelId: string
+}
+
+export interface RoutingDecision {
+  tier: RoutingTier
+  modelId: string
+  confidence: number
+  reason: string
+}
+
+// --- F079: Thinking Level ---
+export type ThinkingLevel = 'fast' | 'thinking' | 'deep'
+
+// --- F084: File Upload ---
+export interface UploadedFileInfo {
+  id: string
+  name: string
+  type: string
+  size: number
+  category: 'text' | 'code' | 'pdf' | 'image'
+  storagePath: string
+}
+
+// --- F085: Agent Steps ---
+export type AgentStepType = 'tool_call' | 'tool_result' | 'web_fetch' | 'code_exec' | 'action'
+export type AgentStepStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface AgentStep {
+  id: string
+  type: AgentStepType
+  name: string
+  input?: string
+  output?: string
+  status: AgentStepStatus
+  startedAt?: string
+  completedAt?: string
+  duration?: number
+}
+
+// --- F086: Thinking Steps ---
+export interface ThinkingStep {
+  id: string
+  content: string
+  parentStepId: string | null
+  depth: number
+  edited?: boolean
+  originalContent?: string
+}
+
+export interface ThinkingData {
+  content: string
+  steps: ThinkingStep[]
+}
+
 export type StreamState =
   | { status: 'idle' }
-  | { status: 'streaming'; content: string }
+  | { status: 'streaming'; content: string; thinkingContent?: string; agentSteps?: AgentStep[] }
   | { status: 'error'; error: string }

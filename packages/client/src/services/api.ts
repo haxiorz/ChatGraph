@@ -7,6 +7,7 @@ import type {
   Prompt,
   SearchResponse,
   Settings,
+  UploadedFileInfo,
   UsageStats,
 } from '../types/index'
 
@@ -157,6 +158,14 @@ export function deletePrompt(id: string) {
   return request<void>(`${BASE}/prompts/${id}`, { method: 'DELETE' })
 }
 
+// Prompt Enhancement
+export function enhancePrompt(content: string) {
+  return request<{ enhanced: string }>(`${BASE}/enhance-prompt`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+}
+
 // Search
 export function search(
   q: string,
@@ -209,4 +218,33 @@ export function importConversation(data: unknown) {
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+// File Upload
+export async function uploadFiles(
+  conversationId: string,
+  files: File[],
+): Promise<UploadedFileInfo[]> {
+  const formData = new FormData()
+  for (const file of files) {
+    formData.append('files', file)
+  }
+
+  const res = await fetch(
+    `${BASE}/conversations/${conversationId}/upload`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: { message?: string }
+    } | null
+    throw new Error(body?.error?.message ?? `Upload failed: HTTP ${res.status}`)
+  }
+
+  const data = (await res.json()) as { files: UploadedFileInfo[] }
+  return data.files
 }

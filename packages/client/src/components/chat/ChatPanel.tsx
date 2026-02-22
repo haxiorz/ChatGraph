@@ -101,7 +101,7 @@ export function ChatPanel() {
 
   const handleEditResend = useCallback(
     (parentId: string, content: string) => {
-      sendMessage(content, parentId)
+      sendMessage(content, { parentNodeId: parentId })
     },
     [sendMessage],
   )
@@ -117,7 +117,7 @@ export function ChatPanel() {
 
   if (tournamentActive) {
     return (
-      <div className="flex h-full flex-col bg-surface">
+      <div className="flex h-full flex-col bg-transparent">
         <TournamentPanel />
         <ContextBar />
         <MessageInput />
@@ -126,7 +126,7 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-surface">
+    <div className="flex h-full flex-col bg-transparent">
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {path.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-fg-muted">
@@ -137,7 +137,7 @@ export function ChatPanel() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-3xl space-y-6">
+          <div className="mx-auto max-w-3xl divide-y divide-[var(--glass-border)]">
             {path.map((node) => {
               const info = siblingData.get(node.id) ?? {
                 index: 0,
@@ -146,6 +146,7 @@ export function ChatPanel() {
               return (
                 <motion.div
                   key={node.id}
+                  className="py-5 first:pt-0"
                   variants={slideUp}
                   initial="initial"
                   animate="animate"
@@ -166,12 +167,17 @@ export function ChatPanel() {
             })}
             {streamState.status === 'streaming' && (
               <motion.div
+                className="py-5"
                 variants={slideUp}
                 initial="initial"
                 animate="animate"
                 transition={EASE_OUT_FAST}
               >
-                <StreamingMessage content={streamState.content} />
+                <StreamingMessage
+                  content={streamState.content}
+                  thinkingContent={streamState.thinkingContent}
+                  agentSteps={streamState.agentSteps}
+                />
               </motion.div>
             )}
             {streamState.status === 'error' && (

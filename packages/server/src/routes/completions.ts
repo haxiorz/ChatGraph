@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { validate } from '../middleware/validate.js'
 import * as completionService from '../services/completionService.js'
+import * as settingsService from '../services/settingsService.js'
 
 export const completionsRouter = Router()
 
@@ -11,6 +12,24 @@ const CompleteSchema = z.object({
   content: z.string().min(1),
   model: z.string().min(1),
   temperature: z.number().min(0).max(2).optional(),
+  thinking: z.object({
+    level: z.enum(['fast', 'thinking', 'deep']),
+    budgetTokens: z.number().optional(),
+  }).optional(),
+  routingInfo: z.object({
+    tier: z.string(),
+    reason: z.string(),
+    originalModel: z.string(),
+  }).optional(),
+  files: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.string(),
+    size: z.number(),
+    category: z.enum(['text', 'code', 'pdf', 'image']),
+    storagePath: z.string(),
+    extractedText: z.string().optional(),
+  })).optional(),
 })
 
 const RegenerateSchema = z.object({
@@ -30,6 +49,10 @@ const TournamentSchema = z.object({
   content: z.string().min(1),
   models: z.array(z.string().min(1)).min(2).max(4),
   temperature: z.number().min(0).max(2).optional(),
+})
+
+const EnhanceSchema = z.object({
+  content: z.string().min(1),
 })
 
 const MergeSchema = z.object({
@@ -132,6 +155,9 @@ completionsRouter.post(
           content: req.body.content,
           model: req.body.model,
           temperature: req.body.temperature,
+          thinking: req.body.thinking,
+          routingInfo: req.body.routingInfo,
+          files: req.body.files,
         },
         res,
         signal,
@@ -246,6 +272,30 @@ completionsRouter.post(
       }
     } finally {
       cleanup()
+    }
+  },
+)
+
+completionsRouter.post(
+  '/enhance-prompt',
+  validate(EnhanceSchema),
+  async (req: Request, res: Response, next) => {
+    try {
+      const apiKey = await settingsService.get('openrouter_api_key')
+      if (!apiKey) {
+        res.status(400).json({
+          error: { message: 'OpenRouter API key not configured. Please set it in Settings.' },
+        })
+        return
+      }
+
+      const enhanced = await completionService.enhancePrompt(
+        req.body.content,
+        apiKey as string,
+      )
+      res.json({ enhanced })
+    } catch (error) {
+      next(error)
     }
   },
 )

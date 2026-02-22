@@ -38,19 +38,19 @@ describe('buildPath', () => {
 })
 
 describe('pathToMessages', () => {
-  it('converts path nodes to OpenRouter messages', () => {
+  it('converts path nodes to OpenRouter messages', async () => {
     const path = [
       { id: 'root', parentId: null, role: 'system' as const, content: 'You are helpful' },
       { id: 'user1', parentId: 'root', role: 'user' as const, content: 'Hello' },
     ]
-    const messages = pathToMessages(path)
+    const messages = await pathToMessages(path)
     expect(messages).toEqual([
       { role: 'system', content: 'You are helpful' },
       { role: 'user', content: 'Hello' },
     ])
   })
 
-  it('returns empty array for empty path', () => {
-    expect(pathToMessages([])).toEqual([])
+  it('returns empty array for empty path', async () => {
+    expect(await pathToMessages([])).toEqual([])
   })
 })

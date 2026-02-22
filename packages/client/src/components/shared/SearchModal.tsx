@@ -83,7 +83,7 @@ export function SearchModal() {
 
   return (
     <Modal open onClose={() => setSearchOpen(false)} className="max-w-xl" top>
-      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-[var(--glass-border)] px-5 py-4">
         <Search size={18} className="shrink-0 text-fg-muted" />
         <input
           ref={inputRef}
@@ -99,7 +99,7 @@ export function SearchModal() {
       </div>
 
       {results.length > 0 && (
-        <div className="max-h-[50vh] overflow-y-auto p-2">
+        <div className="max-h-[50vh] overflow-y-auto p-3">
           {results.map((result, idx) => (
             <motion.div
               key={`${result.nodeId}-${idx}`}
@@ -108,10 +108,10 @@ export function SearchModal() {
               initial="initial"
               animate="animate"
               transition={{ ...EASE_OUT_FAST, delay: idx * 0.03 }}
-              className={`cursor-pointer rounded-lg px-3 py-2 transition-colors ${
+              className={`cursor-pointer rounded-lg px-4 py-3 transition-all ${
                 idx === selectedIndex
-                  ? 'bg-accent-muted'
-                  : 'hover:bg-elevated'
+                  ? 'bg-accent-muted -translate-x-0.5'
+                  : 'hover:bg-[var(--glass-bg-elevated)] hover:-translate-x-0.5'
               }`}
             >
               <div className="mb-1 flex items-center gap-2">

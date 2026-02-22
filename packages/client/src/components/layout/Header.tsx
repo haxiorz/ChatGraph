@@ -8,6 +8,7 @@ import {
   Settings,
   Brain,
   Clock,
+  GitBranch,
 } from 'lucide-react'
 import { useConversationStore } from '../../stores/conversationStore'
 import { useUIStore } from '../../stores/uiStore'
@@ -103,8 +104,13 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4">
+    <header className="glass flex h-14 items-center justify-between border-b border-[var(--glass-border)] px-5 shadow-xs">
       <div className="flex items-center gap-3">
+        {/* Logo */}
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg shadow-sm" style={{ backgroundImage: 'var(--gradient-accent)' }}>
+          <GitBranch size={15} className="text-white" />
+        </div>
+
         {activeConversationId && (
           <IconButton
             onClick={() => navigate('/')}
@@ -127,8 +133,10 @@ export function Header() {
         ) : (
           <h1
             onClick={activeConversation ? handleStartEdit : undefined}
-            className={`text-sm font-semibold tracking-tight text-fg-primary ${
-              activeConversation ? 'cursor-pointer hover:text-accent' : ''
+            className={`text-base font-semibold tracking-tight text-fg-primary ${
+              activeConversation
+                ? 'cursor-pointer hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-accent hover:after:w-full after:transition-all after:duration-200'
+                : ''
             }`}
           >
             {activeConversation?.title ?? 'ChatGraph'}
@@ -140,22 +148,22 @@ export function Header() {
         {/* Title suggestions dropdown */}
         {titleSuggestions.length > 0 && (
           <div className="relative">
-            <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-border bg-surface shadow-lg">
-              <div className="px-3 py-2 text-xs font-medium text-fg-muted border-b border-border">
+            <div className="glass-strong absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-[var(--glass-border)] shadow-lg">
+              <div className="px-3 py-2 text-xs font-medium text-fg-muted border-b border-[var(--glass-border)]">
                 Suggested titles
               </div>
               {titleSuggestions.map((title, i) => (
                 <button
                   key={i}
                   onClick={() => handlePickTitle(title)}
-                  className="w-full px-3 py-2 text-left text-sm text-fg-secondary hover:bg-elevated transition-colors"
+                  className="w-full px-3 py-2 text-left text-sm text-fg-secondary hover:bg-[var(--glass-bg-elevated)] transition-colors"
                 >
                   {title}
                 </button>
               ))}
               <button
                 onClick={() => setTitleSuggestions([])}
-                className="w-full border-t border-border px-3 py-1.5 text-left text-xs text-fg-muted hover:bg-elevated transition-colors"
+                className="w-full border-t border-[var(--glass-border)] px-3 py-1.5 text-left text-xs text-fg-muted hover:bg-[var(--glass-bg-elevated)] transition-colors"
               >
                 Dismiss
               </button>
@@ -166,7 +174,7 @@ export function Header() {
           <span className="text-xs text-fg-muted animate-pulse">Loading titles...</span>
         )}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <IconButton
           onClick={() => setSearchOpen(true)}
           aria-label="Search"
@@ -192,6 +200,8 @@ export function Header() {
             </IconButton>
           </>
         )}
+        {/* Separator between conversation-scoped and global actions */}
+        <div className="mx-2 h-6 w-px bg-[var(--glass-border)]" />
         <IconButton
           onClick={() => useActivityStore.getState().toggleOpen()}
           aria-label="Activity feed"

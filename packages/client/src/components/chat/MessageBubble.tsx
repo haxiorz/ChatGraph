@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Settings2, ChevronDown, ChevronUp, Pencil, RefreshCw, ThumbsUp, ThumbsDown, ScrollText, StickyNote, EyeOff, Expand } from 'lucide-react'
+import { Settings2, ChevronDown, ChevronUp, Pencil, RefreshCw, ThumbsUp, ThumbsDown, ScrollText, StickyNote, EyeOff, Expand, Sparkles, User, Brain, Wrench, Paperclip } from 'lucide-react'
 import type { ConversationNode } from '../../types/index'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useConversationStore } from '../../stores/conversationStore'
 import { formatCost } from '../../utils/cost'
+import { formatFileSize } from '../../utils/format'
 import { BranchNavigator } from './BranchNavigator'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { Badge } from '../ui/Badge'
@@ -68,31 +69,35 @@ function SystemBubble({ node }: { node: ConversationNode }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div
-      className="flex items-start gap-2 rounded-lg bg-elevated px-3 py-2 text-xs text-fg-muted cursor-pointer"
-      onClick={() => setExpanded(!expanded)}
-    >
-      <Settings2 size={14} className="mt-0.5 shrink-0" />
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-col items-center">
+      <div
+        className="glass flex items-center gap-2 rounded-lg border border-[var(--glass-border)] px-4 py-2 text-xs text-fg-muted cursor-pointer hover:bg-[var(--glass-bg-elevated)] transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <Settings2 size={12} className="shrink-0" />
         <span className="font-medium text-fg-secondary">System prompt</span>
-        {expanded && (
-          <p className="mt-1 whitespace-pre-wrap text-fg-secondary">{node.content}</p>
-        )}
-        {!expanded && node.content.length > 80 && (
-          <span className="ml-1 text-fg-muted">
-            &mdash; {node.content.substring(0, 80)}...
+        {!expanded && node.content.length > 60 && (
+          <span className="max-w-[300px] truncate text-fg-muted">
+            &mdash; {node.content.substring(0, 60)}...
           </span>
         )}
-        {!expanded && node.content.length <= 80 && (
-          <span className="ml-1 text-fg-muted">
+        {!expanded && node.content.length <= 60 && (
+          <span className="text-fg-muted">
             &mdash; {node.content}
           </span>
         )}
+        {expanded ? (
+          <ChevronUp size={12} className="shrink-0" />
+        ) : (
+          <ChevronDown size={12} className="shrink-0" />
+        )}
       </div>
-      {expanded ? (
-        <ChevronUp size={14} className="shrink-0" />
-      ) : (
-        <ChevronDown size={14} className="shrink-0" />
+      {expanded && (
+        <div className="mt-2 w-full max-w-2xl">
+          <div className="glass rounded-lg border border-[var(--glass-border)] px-4 py-3 text-xs text-fg-secondary whitespace-pre-wrap">
+            {node.content}
+          </div>
+        </div>
       )}
     </div>
   )
@@ -126,42 +131,40 @@ function UserBubble({
 
   if (isEditing) {
     return (
-      <div className="flex justify-end">
-        <div className="w-full max-w-[80%]">
-          <Textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.ctrlKey) {
-                e.preventDefault()
-                handleSubmitEdit()
-              } else if (e.key === 'Escape') {
-                setIsEditing(false)
-                setEditContent(node.content)
-              }
+      <div className="w-full">
+        <Textarea
+          value={editContent}
+          onChange={(e) => setEditContent(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+              e.preventDefault()
+              handleSubmitEdit()
+            } else if (e.key === 'Escape') {
+              setIsEditing(false)
+              setEditContent(node.content)
+            }
+          }}
+          rows={3}
+          autoFocus
+        />
+        <div className="mt-2 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setIsEditing(false)
+              setEditContent(node.content)
             }}
-            rows={3}
-            autoFocus
-          />
-          <div className="mt-2 flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setIsEditing(false)
-                setEditContent(node.content)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSubmitEdit}
-              disabled={!editContent.trim()}
-            >
-              Save & Submit
-            </Button>
-          </div>
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSubmitEdit}
+            disabled={!editContent.trim()}
+          >
+            Save & Submit
+          </Button>
         </div>
       </div>
     )
@@ -170,41 +173,61 @@ function UserBubble({
   const userMeta = (node.metadata ?? {}) as Record<string, unknown>
   const userAnnotation = userMeta.annotation as string | undefined
   const isUserExcluded = userMeta.excludeFromContext === true
+  const userFiles = userMeta.files as Array<{ id: string; name: string; size: number; category: string }> | undefined
 
   return (
-    <div className="group flex justify-end">
-      <div className="max-w-[80%]">
-        <div className="mb-1 flex items-center justify-end gap-2">
-          {isUserExcluded && (
-            <span className="flex items-center gap-1 text-[10px] text-red-400">
-              <EyeOff size={10} />
-              excluded
-            </span>
-          )}
-          <BranchNavigator
-            currentIndex={siblingIndex}
-            totalSiblings={siblingCount}
-            onNavigate={(dir) => onNavigateSibling(node.id, dir)}
-            nodeId={node.id}
-          />
+    <div className="group">
+      {/* Header row */}
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/15">
+          <User size={13} className="text-accent" />
         </div>
-        <div className="rounded-xl rounded-br-sm bg-accent px-4 py-2.5 text-sm text-accent-text whitespace-pre-wrap">
-          {node.content}
-        </div>
-        {userAnnotation && <AnnotationBlock text={userAnnotation} />}
-        {onEditResend && !isStreaming && (
-          <div className="mt-1 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-            <IconButton
-              onClick={() => setIsEditing(true)}
-              aria-label="Edit message"
-              tooltip="Edit"
-              size="sm"
-            >
-              <Pencil size={13} />
-            </IconButton>
-          </div>
+        <span className="text-sm font-medium text-fg-primary">You</span>
+        {isUserExcluded && (
+          <span className="flex items-center gap-1 text-[10px] text-red-400">
+            <EyeOff size={10} />
+            excluded
+          </span>
         )}
+        <BranchNavigator
+          currentIndex={siblingIndex}
+          totalSiblings={siblingCount}
+          onNavigate={(dir) => onNavigateSibling(node.id, dir)}
+          nodeId={node.id}
+        />
       </div>
+      {/* File attachments */}
+      {userFiles && userFiles.length > 0 && (
+        <div className="pl-8 mb-1.5 flex flex-wrap gap-1.5">
+          {userFiles.map((f) => (
+            <span
+              key={f.id}
+              className="inline-flex items-center gap-1 rounded-md border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2 py-0.5 text-[10px] text-fg-muted"
+            >
+              <Paperclip size={10} />
+              {f.name}
+              <span className="text-fg-muted/60">({formatFileSize(f.size)})</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {/* Content — flat, no bubble */}
+      <div className="pl-8 text-sm text-fg-primary whitespace-pre-wrap">
+        {node.content}
+      </div>
+      {userAnnotation && <div className="pl-8"><AnnotationBlock text={userAnnotation} /></div>}
+      {onEditResend && !isStreaming && (
+        <div className="mt-1 pl-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <IconButton
+            onClick={() => setIsEditing(true)}
+            aria-label="Edit message"
+            tooltip="Edit"
+            size="sm"
+          >
+            <Pencil size={13} />
+          </IconButton>
+        </div>
+      )}
     </div>
   )
 }
@@ -234,130 +257,200 @@ function AssistantBubble({
   const summarizedNodeIds = (meta.summarizedNodeIds as string[] | undefined) ?? []
   const annotation = meta.annotation as string | undefined
   const isAssistantExcluded = meta.excludeFromContext === true
+  const thinkingData = meta.thinking as { content?: string; level?: string } | undefined
+  const thinkingContent = thinkingData?.content
+  const thinkingLevel = thinkingData?.level
+  const agentSteps = meta.agentSteps as Array<{ id: string; type: string; name: string; input?: string; output?: string; status: string }> | undefined
   const [showOriginals, setShowOriginals] = useState(false)
+  const [showThinking, setShowThinking] = useState(false)
+  const [showAgentSteps, setShowAgentSteps] = useState(false)
   const allNodes = useConversationStore((s) => s.nodes)
 
   return (
-    <div className="group flex justify-start">
-      <div className="max-w-[80%]">
-        <div className="mb-1 flex items-center gap-2">
-          {isAssistantExcluded && (
-            <Badge variant="outline" className="border-red-400 text-red-400">
-              <EyeOff size={10} className="mr-1" />
-              excluded
-            </Badge>
-          )}
-          {isSummary && (
-            <Badge variant="outline" className="border-cyan-400 text-cyan-500">
-              <ScrollText size={10} className="mr-1" />
-              Summary{summarizedCount > 0 ? ` (${summarizedCount} msgs)` : ''}
-            </Badge>
-          )}
-          {node.model && (
-            <Badge variant="outline">{node.model}</Badge>
-          )}
-          <BranchNavigator
-            currentIndex={siblingIndex}
-            totalSiblings={siblingCount}
-            onNavigate={(dir) => onNavigateSibling(node.id, dir)}
-            nodeId={node.id}
-          />
+    <div className="group">
+      {/* Header row */}
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/15">
+          <Sparkles size={13} className="text-emerald-500" />
         </div>
-        <div className={`border-l-2 pl-4 text-sm text-fg-primary ${isSummary ? 'border-cyan-400/50' : 'border-accent/30'}`}>
-          {node.content ? (
-            <div className="markdown-body">
-              <MarkdownRenderer content={node.content} />
-            </div>
-          ) : (
-            <span className="italic text-fg-muted">Empty response</span>
-          )}
-        </div>
-        {isSummary && summarizedNodeIds.length > 0 && (
-          <div className="mt-2">
-            <button
-              onClick={() => setShowOriginals(!showOriginals)}
-              className="flex items-center gap-1.5 rounded-md border border-cyan-400/30 bg-cyan-500/5 px-2.5 py-1 text-xs text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
-            >
-              <Expand size={12} />
-              {showOriginals ? 'Hide' : 'Show'} original {summarizedNodeIds.length} messages
-              {showOriginals ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </button>
-            {showOriginals && (
-              <div className="mt-2 space-y-1.5 rounded-lg border border-cyan-400/20 bg-cyan-500/5 p-2.5">
-                {summarizedNodeIds.map((nid) => {
-                  const orig = allNodes.get(nid)
-                  if (!orig) return null
-                  const truncated = orig.content.length > 300
-                    ? orig.content.substring(0, 300) + '...'
-                    : orig.content
-                  return (
-                    <div
-                      key={nid}
-                      className="rounded border border-border bg-surface px-2.5 py-1.5 text-xs"
-                    >
-                      <span className="font-medium text-fg-muted capitalize">
-                        {orig.role}:
-                      </span>{' '}
-                      <span className="text-fg-secondary whitespace-pre-wrap">{truncated}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+        <span className="text-sm font-medium text-fg-primary">Assistant</span>
+        {isAssistantExcluded && (
+          <Badge variant="outline" className="border-red-400 text-red-400">
+            <EyeOff size={10} className="mr-1" />
+            excluded
+          </Badge>
         )}
-        {annotation && <AnnotationBlock text={annotation} />}
-        <div className="mt-1 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {onRegenerate && !isStreaming && (
+        {isSummary && (
+          <Badge variant="outline" className="border-cyan-400 text-cyan-500">
+            <ScrollText size={10} className="mr-1" />
+            Summary{summarizedCount > 0 ? ` (${summarizedCount} msgs)` : ''}
+          </Badge>
+        )}
+        {thinkingLevel && thinkingLevel !== 'fast' && (
+          <Badge variant="outline" className="border-purple-400 text-purple-500">
+            <Brain size={10} className="mr-1" />
+            {thinkingLevel}
+          </Badge>
+        )}
+        {node.model && (
+          <Badge variant="outline">{node.model}</Badge>
+        )}
+        <BranchNavigator
+          currentIndex={siblingIndex}
+          totalSiblings={siblingCount}
+          onNavigate={(dir) => onNavigateSibling(node.id, dir)}
+          nodeId={node.id}
+        />
+      </div>
+
+      {/* Thinking content (collapsible) */}
+      {thinkingContent && (
+        <div className="pl-8 mb-2">
+          <button
+            onClick={() => setShowThinking(!showThinking)}
+            className="flex items-center gap-1.5 text-xs text-purple-500 hover:text-purple-400 transition-colors"
+          >
+            <Brain size={12} />
+            <span className="font-medium">
+              Show thinking ({thinkingContent.length > 100 ? `${Math.ceil(thinkingContent.length / 4)} tokens` : `${thinkingContent.length} chars`})
+            </span>
+            {showThinking ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {showThinking && (
+            <div className="mt-1 border-l-2 border-purple-400/30 pl-3 text-xs italic text-fg-muted max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {thinkingContent}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Agent steps (collapsible) */}
+      {agentSteps && agentSteps.length > 0 && (
+        <div className="pl-8 mb-2">
+          <button
+            onClick={() => setShowAgentSteps(!showAgentSteps)}
+            className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-400 transition-colors"
+          >
+            <Wrench size={12} />
+            <span className="font-medium">{agentSteps.length} tool call{agentSteps.length > 1 ? 's' : ''}</span>
+            {showAgentSteps ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {showAgentSteps && (
+            <div className="mt-1 space-y-1">
+              {agentSteps.map((step) => (
+                <div
+                  key={step.id}
+                  className="rounded border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-1.5 text-xs"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className={`h-1.5 w-1.5 rounded-full ${step.status === 'completed' ? 'bg-green-500' : step.status === 'running' ? 'bg-blue-500' : 'bg-red-500'}`} />
+                    <span className="font-mono font-medium text-fg-secondary">{step.name}</span>
+                  </div>
+                  {step.input && (
+                    <pre className="mt-1 text-[10px] text-fg-muted overflow-x-auto max-h-20 overflow-y-auto">{step.input}</pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Content — flat, no bubble */}
+      <div className={`pl-8 text-sm text-fg-primary ${isSummary ? 'ring-1 ring-cyan-400/20 rounded-lg p-3 -ml-3' : ''}`}>
+        {node.content ? (
+          <div className="markdown-body">
+            <MarkdownRenderer content={node.content} />
+          </div>
+        ) : (
+          <span className="italic text-fg-muted">Empty response</span>
+        )}
+      </div>
+      {isSummary && summarizedNodeIds.length > 0 && (
+        <div className="mt-2 pl-8">
+          <button
+            onClick={() => setShowOriginals(!showOriginals)}
+            className="flex items-center gap-1.5 rounded-md border border-cyan-400/30 bg-cyan-500/5 px-2.5 py-1 text-xs text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+          >
+            <Expand size={12} />
+            {showOriginals ? 'Hide' : 'Show'} original {summarizedNodeIds.length} messages
+            {showOriginals ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {showOriginals && (
+            <div className="mt-2 space-y-1.5 rounded-lg border border-cyan-400/20 bg-cyan-500/5 p-2.5">
+              {summarizedNodeIds.map((nid) => {
+                const orig = allNodes.get(nid)
+                if (!orig) return null
+                const truncated = orig.content.length > 300
+                  ? orig.content.substring(0, 300) + '...'
+                  : orig.content
+                return (
+                  <div
+                    key={nid}
+                    className="rounded border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-1.5 text-xs"
+                  >
+                    <span className="font-medium text-fg-muted capitalize">
+                      {orig.role}:
+                    </span>{' '}
+                    <span className="text-fg-secondary whitespace-pre-wrap">{truncated}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      {annotation && <div className="pl-8"><AnnotationBlock text={annotation} /></div>}
+      <div className="mt-1 pl-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        {onRegenerate && !isStreaming && (
+          <IconButton
+            onClick={() => onRegenerate(node.id)}
+            aria-label="Regenerate"
+            tooltip="Regenerate"
+            size="sm"
+          >
+            <RefreshCw size={13} />
+          </IconButton>
+        )}
+        {onRate && !isStreaming && (
+          <>
             <IconButton
-              onClick={() => onRegenerate(node.id)}
-              aria-label="Regenerate"
-              tooltip="Regenerate"
+              onClick={() =>
+                onRate(node.id, currentRating === 'up' ? null : 'up')
+              }
+              aria-label="Thumbs up"
+              tooltip="Good response"
               size="sm"
             >
-              <RefreshCw size={13} />
+              <ThumbsUp
+                size={13}
+                className={
+                  currentRating === 'up'
+                    ? 'fill-green-500 text-green-500'
+                    : ''
+                }
+              />
             </IconButton>
-          )}
-          {onRate && !isStreaming && (
-            <>
-              <IconButton
-                onClick={() =>
-                  onRate(node.id, currentRating === 'up' ? null : 'up')
+            <IconButton
+              onClick={() =>
+                onRate(node.id, currentRating === 'down' ? null : 'down')
+              }
+              aria-label="Thumbs down"
+              tooltip="Bad response"
+              size="sm"
+            >
+              <ThumbsDown
+                size={13}
+                className={
+                  currentRating === 'down'
+                    ? 'fill-red-500 text-red-500'
+                    : ''
                 }
-                aria-label="Thumbs up"
-                tooltip="Good response"
-                size="sm"
-              >
-                <ThumbsUp
-                  size={13}
-                  className={
-                    currentRating === 'up'
-                      ? 'fill-green-500 text-green-500'
-                      : ''
-                  }
-                />
-              </IconButton>
-              <IconButton
-                onClick={() =>
-                  onRate(node.id, currentRating === 'down' ? null : 'down')
-                }
-                aria-label="Thumbs down"
-                tooltip="Bad response"
-                size="sm"
-              >
-                <ThumbsDown
-                  size={13}
-                  className={
-                    currentRating === 'down'
-                      ? 'fill-red-500 text-red-500'
-                      : ''
-                  }
-                />
-              </IconButton>
-            </>
-          )}
-          <TokenInfo metadata={node.metadata} model={node.model} />
-        </div>
+              />
+            </IconButton>
+          </>
+        )}
+        <TokenInfo metadata={node.metadata} model={node.model} />
       </div>
     </div>
   )

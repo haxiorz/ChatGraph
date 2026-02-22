@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Check, Sparkles } from 'lucide-react'
 import { useUIStore } from '../../stores/uiStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { scaleIn, EASE_OUT_FAST } from '../../utils/animations'
@@ -8,6 +8,9 @@ import { scaleIn, EASE_OUT_FAST } from '../../utils/animations'
 export function ModelSelector() {
   const selectedModel = useUIStore((s) => s.selectedModel)
   const setSelectedModel = useUIStore((s) => s.setSelectedModel)
+  const smartRouterEnabled = useUIStore((s) => s.smartRouterEnabled)
+  const lastRoutingDecision = useUIStore((s) => s.lastRoutingDecision)
+  const toggleSmartRouter = useUIStore((s) => s.toggleSmartRouter)
   const models = useSettingsStore((s) => s.models)
   const loadModels = useSettingsStore((s) => s.loadModels)
 
@@ -50,11 +53,18 @@ export function ModelSelector() {
 
   const handleSelect = useCallback(
     (modelId: string) => {
+      if (modelId === '__auto__') {
+        if (!smartRouterEnabled) toggleSmartRouter()
+        setOpen(false)
+        setSearch('')
+        return
+      }
+      // Selecting a specific model disables auto-routing override for this message
       setSelectedModel(modelId)
       setOpen(false)
       setSearch('')
     },
-    [setSelectedModel],
+    [setSelectedModel, smartRouterEnabled, toggleSmartRouter],
   )
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -81,14 +91,25 @@ export function ModelSelector() {
   }, [highlightIndex])
 
   const displayName = selectedModel.split('/').pop() ?? selectedModel
+  const routedModelName = lastRoutingDecision?.modelId?.split('/').pop()
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 rounded-lg border border-border bg-elevated px-3 py-1.5 text-xs text-fg-secondary hover:bg-subtle transition-colors"
+        className="glass flex items-center gap-1.5 rounded-lg border border-[var(--glass-border)] px-3 py-2 text-xs text-fg-secondary shadow-xs hover:bg-[var(--glass-bg-elevated)] transition-all active:scale-[0.97]"
       >
-        <span className="max-w-[200px] truncate">{displayName}</span>
+        {smartRouterEnabled ? (
+          <>
+            <Sparkles size={11} className="text-amber-500" />
+            <span className="font-medium text-amber-500">Auto</span>
+            {routedModelName && (
+              <span className="text-fg-muted text-[10px]">{routedModelName}</span>
+            )}
+          </>
+        ) : (
+          <span className="max-w-[200px] truncate">{displayName}</span>
+        )}
         <ChevronDown
           size={12}
           className={`transition-transform ${open ? 'rotate-180' : ''}`}
@@ -98,7 +119,7 @@ export function ModelSelector() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="absolute bottom-full left-0 z-50 mb-1 w-80 rounded-lg border border-border bg-surface shadow-md"
+            className="glass-strong absolute bottom-full left-0 z-50 mb-2 w-80 rounded-xl border border-[var(--glass-border)] shadow-xl"
             variants={scaleIn}
             initial="initial"
             animate="animate"
@@ -116,10 +137,30 @@ export function ModelSelector() {
                   setHighlightIndex(-1)
                 }}
                 onKeyDown={handleKeyDown}
-                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className="w-full rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-elevated)] px-3 py-2 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
             </div>
             <div ref={listRef} className="max-h-64 overflow-y-auto">
+              {/* Auto (Smart Route) option */}
+              {!search && (
+                <button
+                  onClick={() => handleSelect('__auto__')}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                    smartRouterEnabled
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'text-fg-secondary hover:bg-[var(--glass-bg-elevated)]'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <Sparkles size={12} className="text-amber-500" />
+                      Auto (Smart Route)
+                    </div>
+                    <div className="text-xs text-fg-muted">Auto-select model by prompt complexity</div>
+                  </div>
+                  {smartRouterEnabled && <Check size={14} className="shrink-0 text-amber-500" />}
+                </button>
+              )}
               {filtered.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-fg-muted">
                   {models.length === 0
@@ -127,27 +168,34 @@ export function ModelSelector() {
                     : 'No models found'}
                 </div>
               ) : (
-                filtered.map((model, idx) => (
-                  <button
-                    key={model.id}
-                    onClick={() => handleSelect(model.id)}
-                    className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                      idx === highlightIndex
-                        ? 'bg-accent-muted text-accent'
-                        : model.id === selectedModel
-                          ? 'bg-accent-muted text-accent'
-                          : 'text-fg-secondary hover:bg-elevated'
-                    }`}
-                  >
-                    <div className="font-medium">{model.name || model.id}</div>
-                    {model.pricing && (
-                      <div className="text-xs text-fg-muted">
-                        ${model.pricing.prompt}/tok in | $
-                        {model.pricing.completion}/tok out
+                filtered.map((model, idx) => {
+                  const isSelected = model.id === selectedModel
+                  const isHighlighted = idx === highlightIndex
+                  return (
+                    <button
+                      key={model.id}
+                      onClick={() => handleSelect(model.id)}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                        isHighlighted
+                          ? 'bg-accent/10 text-accent'
+                          : isSelected
+                            ? 'bg-accent-muted text-accent'
+                            : 'text-fg-secondary hover:bg-[var(--glass-bg-elevated)]'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium">{model.name || model.id}</div>
+                        {model.pricing && (
+                          <div className="text-xs text-fg-muted">
+                            ${model.pricing.prompt}/tok in | $
+                            {model.pricing.completion}/tok out
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </button>
-                ))
+                      {isSelected && <Check size={14} className="shrink-0 text-accent" />}
+                    </button>
+                  )
+                })
               )}
             </div>
           </motion.div>

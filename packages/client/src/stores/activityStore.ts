@@ -8,6 +8,7 @@ export type ActivityEventType =
   | 'regenerate'
   | 'title'
   | 'info'
+  | 'routing'
 
 interface ActivityEvent {
   id: string

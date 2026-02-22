@@ -8,7 +8,7 @@ import { consumeTournamentStream } from '../services/tournamentStream'
 import { toast } from '../stores/toastStore'
 import { activity } from '../stores/activityStore'
 import * as api from '../services/api'
-import type { ConversationNode } from '../types/index'
+import type { ConversationNode, AgentStep, UploadedFileInfo } from '../types/index'
 
 function notifyIfHidden(node: ConversationNode) {
   const settings = useSettingsStore.getState().settings
@@ -137,9 +137,10 @@ export function useCompletion() {
   const abortRef = useRef<AbortController | null>(null)
 
   const sendMessage = useCallback(
-    async (content: string, overrideParentNodeId?: string) => {
+    async (content: string, options?: { parentNodeId?: string; files?: UploadedFileInfo[] }) => {
       if (!activeConversationId) return
-      const parentId = overrideParentNodeId ?? activeNodeId
+      const opts = options
+      const parentId = opts?.parentNodeId ?? activeNodeId
       if (!parentId) return
 
       // Abort any in-flight request
@@ -153,6 +154,20 @@ export function useCompletion() {
       setStreamState({ status: 'streaming', content: '' })
 
       const temperature = useSettingsStore.getState().settings.temperature
+      const thinkingLevel = useUIStore.getState().thinkingLevel
+
+      // F078: Smart routing
+      let effectiveModel = selectedModel
+      let routingInfo: { tier: string; reason: string; originalModel: string } | undefined
+      const uiState = useUIStore.getState()
+      if (uiState.smartRouterEnabled) {
+        const { classifyPrompt, resolveModel } = await import('../utils/promptClassifier')
+        const decision = classifyPrompt(content)
+        effectiveModel = resolveModel(decision, uiState.routingTierConfig) ?? selectedModel
+        routingInfo = { tier: decision.tier, reason: decision.reason, originalModel: selectedModel }
+        uiState.setLastRoutingDecision({ ...decision, modelId: effectiveModel })
+        activity.log('routing', `Smart route: ${decision.tier} → ${effectiveModel.split('/').pop()}`, effectiveModel)
+      }
 
       try {
         await consumeStream(
@@ -160,8 +175,11 @@ export function useCompletion() {
           {
             parentNodeId: parentId,
             content,
-            model: selectedModel,
+            model: effectiveModel,
             ...(temperature != null && { temperature }),
+            ...(thinkingLevel !== 'fast' && { thinking: { level: thinkingLevel } }),
+            ...(routingInfo && { routingInfo }),
+            ...(opts?.files && opts.files.length > 0 && { files: opts.files }),
           },
           {
             onUserNode: (node) => {
@@ -174,6 +192,61 @@ export function useCompletion() {
                   streamState: {
                     status: 'streaming',
                     content: state.streamState.content + token,
+                    thinkingContent: state.streamState.thinkingContent,
+                    agentSteps: state.streamState.agentSteps,
+                  },
+                })
+              }
+            },
+            onThinking: (thinkingToken) => {
+              const state = useUIStore.getState()
+              if (state.streamState.status === 'streaming') {
+                useUIStore.setState({
+                  streamState: {
+                    status: 'streaming',
+                    content: state.streamState.content,
+                    thinkingContent: (state.streamState.thinkingContent ?? '') + thinkingToken,
+                    agentSteps: state.streamState.agentSteps,
+                  },
+                })
+              }
+            },
+            onToolCallStart: (step) => {
+              const state = useUIStore.getState()
+              if (state.streamState.status === 'streaming') {
+                const steps = [...(state.streamState.agentSteps ?? [])]
+                steps.push({
+                  id: step.stepId,
+                  type: 'tool_call',
+                  name: step.name,
+                  input: step.arguments,
+                  status: 'running',
+                  startedAt: new Date().toISOString(),
+                })
+                useUIStore.setState({
+                  streamState: {
+                    status: 'streaming',
+                    content: state.streamState.content,
+                    thinkingContent: state.streamState.thinkingContent,
+                    agentSteps: steps,
+                  },
+                })
+              }
+            },
+            onToolCallEnd: (step) => {
+              const state = useUIStore.getState()
+              if (state.streamState.status === 'streaming') {
+                const steps = (state.streamState.agentSteps ?? []).map((s) =>
+                  s.id === step.stepId
+                    ? { ...s, status: 'completed' as const, output: step.result, completedAt: new Date().toISOString() }
+                    : s,
+                )
+                useUIStore.setState({
+                  streamState: {
+                    status: 'streaming',
+                    content: state.streamState.content,
+                    thinkingContent: state.streamState.thinkingContent,
+                    agentSteps: steps,
                   },
                 })
               }

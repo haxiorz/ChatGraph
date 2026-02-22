@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { X, Sun, Moon, Bell, BellOff } from 'lucide-react'
 import { useUIStore } from '../../stores/uiStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useTheme } from '../../hooks/useTheme'
 import { PromptLibrary } from '../shared/PromptLibrary'
 import { UsageDashboard } from '../shared/UsageDashboard'
+import { SmartRouterConfig } from '../shared/SmartRouterConfig'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { IconButton } from '../ui/IconButton'
@@ -95,9 +97,9 @@ export function SettingsDialog() {
   ]
 
   return (
-    <Modal open onClose={() => setSettingsOpen(false)} className="max-w-lg p-6">
+    <Modal open onClose={() => setSettingsOpen(false)} className="max-w-xl p-8">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-fg-primary">Settings</h2>
+        <h2 className="text-xl font-semibold text-fg-primary">Settings</h2>
         <IconButton
           onClick={() => setSettingsOpen(false)}
           aria-label="Close settings"
@@ -106,28 +108,39 @@ export function SettingsDialog() {
         </IconButton>
       </div>
 
-      {/* Tab bar — underline style */}
-      <div className="mb-4 flex border-b border-border">
+      {/* Tab bar — pill/segment control */}
+      <div className="relative mb-5 flex rounded-lg bg-[var(--glass-bg)] border border-[var(--glass-border)] p-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`relative z-10 flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? 'border-b-2 border-accent text-accent'
-                : 'text-fg-muted hover:text-fg-primary'
+                ? 'text-fg-primary'
+                : 'text-fg-muted hover:text-fg-secondary'
             }`}
           >
             {tab.label}
           </button>
         ))}
+        <motion.div
+          layoutId="settings-tab-pill"
+          className="absolute inset-y-1 rounded-md bg-[var(--glass-bg-elevated)] shadow-sm"
+          style={{
+            width: `${100 / TABS.length}%`,
+          }}
+          animate={{
+            left: `${(TABS.findIndex((t) => t.id === activeTab) / TABS.length) * 100}%`,
+          }}
+          transition={{ type: 'spring', stiffness: 450, damping: 28 }}
+        />
       </div>
 
       {activeTab === 'general' && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* API Key */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-fg-secondary">
+            <label className="mb-1.5 block text-sm font-medium text-fg-primary">
               OpenRouter API Key
             </label>
             <Input
@@ -160,13 +173,13 @@ export function SettingsDialog() {
 
           {/* Default Model */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-fg-secondary">
+            <label className="mb-1.5 block text-sm font-medium text-fg-primary">
               Default Model
             </label>
             <select
               value={defaultModel}
               onChange={(e) => setDefaultModel(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg-primary transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="w-full rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-elevated)] backdrop-blur-sm px-3.5 py-2.5 text-sm text-fg-primary transition-all focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             >
               <option value="">Select a model...</option>
               {models.map((m) => (
@@ -179,7 +192,7 @@ export function SettingsDialog() {
 
           {/* Temperature */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-fg-secondary">
+            <label className="mb-1.5 block text-sm font-medium text-fg-primary">
               Temperature: {temperature.toFixed(1)}
             </label>
             <input
@@ -199,7 +212,7 @@ export function SettingsDialog() {
 
           {/* Theme — explicit buttons */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-fg-secondary">
+            <label className="mb-1.5 block text-sm font-medium text-fg-primary">
               Theme
             </label>
             <div className="flex gap-2">
@@ -226,7 +239,7 @@ export function SettingsDialog() {
 
           {/* Desktop Notifications */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-fg-secondary">
+            <label className="mb-1.5 block text-sm font-medium text-fg-primary">
               Desktop Notifications
             </label>
             <button
@@ -246,9 +259,9 @@ export function SettingsDialog() {
                 }
                 setDesktopNotifications(!desktopNotifications)
               }}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors ${
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-all ${
                 desktopNotifications
-                  ? 'border-accent/30 bg-accent/5 text-fg-primary'
+                  ? 'border-accent/30 bg-accent/5 text-fg-primary shadow-xs'
                   : 'border-border bg-surface text-fg-muted'
               }`}
             >
@@ -264,7 +277,7 @@ export function SettingsDialog() {
 
           {/* Daily Budget */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-fg-secondary">
+            <label className="mb-1.5 block text-sm font-medium text-fg-primary">
               Daily Budget (USD)
             </label>
             <Input
@@ -280,7 +293,10 @@ export function SettingsDialog() {
             </p>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          {/* Smart Model Routing */}
+          <SmartRouterConfig />
+
+          <div className="flex justify-end gap-3 pt-4">
             <Button
               variant="secondary"
               onClick={() => setSettingsOpen(false)}
